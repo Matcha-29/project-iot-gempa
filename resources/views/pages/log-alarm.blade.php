@@ -1,108 +1,51 @@
-@extends('layouts.app', ['title' => 'Catatan Sirine & Alarm - Sistem Deteksi Gempa IoT'])
-
+@extends('layouts.app', ['title' => 'Log Alarm - Sistem Gempa IoT'])
 @section('main-content')
-@include('components.navbar', [
-    'title' => 'Log Alarm',
-    'subtitle' => 'Catatan setiap kali sirine dibunyikan, beserta status dan catatan petugas'
-])
+@include('components.navbar', ['title' => 'Log Alarm', 'subtitle' => 'Riwayat alarm dan notifikasi'])
+<main class="p-8"><div class="bg-white p-6 rounded-2xl border shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="border-b text-brand-muted"><th class="py-3">Waktu</th><th>Jenis</th><th>Status</th><th>Durasi</th><th>Deteksi</th><th>Petugas</th><th>Catatan</th></tr></thead><tbody id="alarmRows" class="divide-y">
+@forelse($logAlarm as $item)
+<tr data-live-id="{{ $item->getKey() }}"><td class="py-3">{{ $item->waktu_alarm?->timezone(config('app.display_timezone'))->format('d M Y H:i:s') ?? '-' }}</td><td>{{ $item->jenis_alarm }}</td><td><span class="status-pill px-2 py-1 text-[10px] font-bold {{ $item->status_alarm === 'menyala' ? 'bg-red-100 text-red-800' : ($item->status_alarm === 'selesai' ? 'bg-emerald-100 text-emerald-800' : ($item->status_alarm === 'dibatalkan' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800')) }}">{{ ucfirst(str_replace('_', ' ', $item->status_alarm)) }}</span></td><td>{{ $item->durasi_detik !== null ? $item->durasi_detik.' dtk' : '-' }}</td><td>{{ optional($item->deteksi)->id_deteksi ?? '-' }}</td><td>{{ optional($item->petugas)->nama ?? '-' }}</td><td>{{ $item->catatan ?? '-' }}</td></tr>
+@empty
+<tr data-live-empty><td colspan="7" class="py-8 text-center text-brand-muted">Belum ada log alarm</td></tr>
+@endforelse
+</tbody></table></div><div class="mt-4">{{ $logAlarm->links() }}</div></div></main>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+    (() => {
+        const live = window.liveTable;
+        const body = document.getElementById('alarmRows');
+        const makeRow = () => {
+            const row = document.createElement('tr');
+            for (let index = 0; index < 7; index++) {
+                const cell = document.createElement('td');
+                if (index === 0) cell.className = 'py-3';
+                if (index === 2) {
+                    const badge = document.createElement('span');
+                    badge.className = 'status-pill px-2 py-1 text-[10px] font-bold';
+                    cell.appendChild(badge);
+                }
+                row.appendChild(cell);
+            }
+            return row;
+        };
+        const updateRow = (row, item) => {
+            live.setText(row.cells[0], live.formatDate(item.alarm_at));
+            live.setText(row.cells[1], item.type);
+            const status = (item.status || '').toLowerCase();
+            const colors = status === 'menyala' ? 'bg-red-100 text-red-800'
+                : (status === 'selesai' ? 'bg-emerald-100 text-emerald-800'
+                    : (status === 'dibatalkan' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800'));
+            const label = status ? status.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase()) : '-';
+            live.setBadge(row.cells[2].firstElementChild, label, colors);
+            live.setText(row.cells[3], item.duration_seconds === null ? '-' : `${item.duration_seconds} dtk`);
+            live.setText(row.cells[4], item.detection_id);
+            live.setText(row.cells[5], item.officer);
+            live.setText(row.cells[6], item.notes);
+        };
 
-<main class="p-8 space-y-6">
-    <!-- 3 Kotak Indikator Log Alarm -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="bg-white p-5 rounded-2xl border border-brand-border shadow-sm">
-            <span class="text-[11px] font-bold text-brand-muted uppercase">ALARM BULAN INI</span>
-            <p class="text-3xl font-mono font-bold mt-1 text-brand-text">5</p>
-            <span class="text-xs text-brand-muted mt-2 block">1 gempa, 4 uji coba</span>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-brand-border shadow-sm">
-            <span class="text-[11px] font-bold text-brand-muted uppercase">SIRINE TERAKHIR</span>
-            <p class="text-3xl font-mono font-bold mt-1 text-brand-text">08:00</p>
-            <span class="text-xs text-brand-muted mt-2 block">Hari ini · uji coba · 6 detik</span>
-        </div>
-        <div class="bg-white p-5 rounded-2xl border border-brand-border shadow-sm">
-            <span class="text-[11px] font-bold text-brand-muted uppercase">STATUS SIRINE</span>
-            <p class="text-2xl font-bold mt-1 text-brand-aman">Siap</p>
-            <span class="text-xs text-brand-muted mt-2 block">Uji terakhir berhasil</span>
-        </div>
-    </div>
-
-    <!-- Riwayat Alarm -->
-    <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-        <div class="flex items-center justify-between pb-4 border-b border-brand-border">
-            <h2 class="font-bold text-base text-brand-text">Riwayat Alarm</h2>
-            <select class="px-3 py-2 border border-brand-border rounded-xl text-xs bg-white focus:outline-none">
-                <option>Semua status</option>
-                <option>Selesai</option>
-                <option>Gagal</option>
-                <option>Dibatalkan</option>
-            </select>
-        </div>
-
-        <div class="overflow-x-auto mt-2">
-            <table class="w-full text-left text-xs font-mono">
-                <thead>
-                    <tr class="text-brand-muted uppercase text-[10px] tracking-wider border-b border-brand-border font-sans">
-                        <th class="py-3 px-3">Waktu Alarm</th>
-                        <th class="py-3 px-3">Deteksi Terkait</th>
-                        <th class="py-3 px-3">Status</th>
-                        <th class="py-3 px-3">Durasi</th>
-                        <th class="py-3 px-3 font-sans">Catatan Petugas</th>
-                        <th class="py-3 px-3 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-brand-border font-sans">
-                    <tr>
-                        <td class="py-3.5 px-3 font-mono text-brand-muted">Hari ini 08:00:12</td>
-                        <td class="py-3.5 px-3 font-semibold text-blue-700">Uji coba · RT 01</td>
-                        <td class="py-3.5 px-3"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">Selesai</span></td>
-                        <td class="py-3.5 px-3 font-mono">6 dtk</td>
-                        <td class="py-3.5 px-3 text-brand-muted text-[11px]">Uji rutin harian, sirine normal.</td>
-                        <td class="py-3.5 px-3 text-right"><button class="px-3 py-1 rounded border border-brand-border hover:bg-gray-50 text-xs font-semibold">Ubah</button></td>
-                    </tr>
-                    <tr>
-                        <td class="py-3.5 px-3 font-mono text-brand-muted">Kemarin 21:14:38</td>
-                        <td class="py-3.5 px-3 font-semibold text-brand-waspada">Sedang · RT 01</td>
-                        <td class="py-3.5 px-3"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">Selesai</span></td>
-                        <td class="py-3.5 px-3 font-mono">45 dtk</td>
-                        <td class="py-3.5 px-3 text-brand-muted text-[11px]">Gempa terkonfirmasi. 1 warga minta bantuan, sudah ditangani.</td>
-                        <td class="py-3.5 px-3 text-right"><button class="px-3 py-1 rounded border border-brand-border hover:bg-gray-50 text-xs font-semibold">Ubah</button></td>
-                    </tr>
-                    <tr>
-                        <td class="py-3.5 px-3 font-mono text-brand-muted">27 Okt 16:05:15</td>
-                        <td class="py-3.5 px-3 font-semibold text-emerald-700">Ringan · RT 01</td>
-                        <td class="py-3.5 px-3"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">Selesai</span></td>
-                        <td class="py-3.5 px-3 font-mono">20 dtk</td>
-                        <td class="py-3.5 px-3 text-brand-muted text-[11px]">—</td>
-                        <td class="py-3.5 px-3 text-right"><button class="px-3 py-1 rounded border border-brand-border hover:bg-gray-50 text-xs font-semibold">Ubah</button></td>
-                    </tr>
-                    <tr class="bg-red-50/40">
-                        <td class="py-3.5 px-3 font-mono text-brand-muted">25 Okt 08:00:10</td>
-                        <td class="py-3.5 px-3 font-semibold text-blue-700">Uji coba · RT 01</td>
-                        <td class="py-3.5 px-3"><span class="px-2 py-0.5 rounded bg-red-100 text-red-800 text-[10px] font-bold">Gagal</span></td>
-                        <td class="py-3.5 px-3 font-mono">0 dtk</td>
-                        <td class="py-3.5 px-3 text-red-700 text-[11px]">Relay sirine tidak merespons. Sudah diperbaiki 26 Okt.</td>
-                        <td class="py-3.5 px-3 text-right"><button class="px-3 py-1 rounded border border-brand-border hover:bg-gray-50 text-xs font-semibold">Ubah</button></td>
-                    </tr>
-                    <tr>
-                        <td class="py-3.5 px-3 font-mono text-brand-muted">24 Okt 12:40:02</td>
-                        <td class="py-3.5 px-3 font-semibold text-blue-700">Uji coba · RT 01</td>
-                        <td class="py-3.5 px-3"><span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-bold">Dibatalkan</span></td>
-                        <td class="py-3.5 px-3 font-mono">2 dtk</td>
-                        <td class="py-3.5 px-3 text-brand-muted text-[11px]">Dibatalkan petugas, salah tekan.</td>
-                        <td class="py-3.5 px-3 text-right"><button class="px-3 py-1 rounded border border-brand-border hover:bg-gray-50 text-xs font-semibold">Ubah</button></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Form Input Catatan Petugas -->
-    <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm">
-        <h3 class="font-bold text-sm text-brand-text mb-3">Catatan untuk alarm 25 Okt 08:00:10</h3>
-        <textarea rows="3" class="w-full p-4 border border-brand-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-aman/20">Relay sirine tidak merespons. Sudah diperbaiki 26 Okt.</textarea>
-        <div class="flex justify-end mt-3">
-            <button class="px-5 py-2.5 rounded-xl bg-brand-aman text-white text-xs font-semibold hover:bg-[#14662F]">Simpan Catatan</button>
-        </div>
-    </div>
-</main>
+        live.poll(@json(route('log-alarm.data')), result => {
+            live.syncRows(body, result.items || [], makeRow, updateRow, 'Belum ada log alarm', 7);
+        }, @json($logAlarm->currentPage()));
+    })();
+    });
+</script>
 @endsection

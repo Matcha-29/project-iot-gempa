@@ -16,7 +16,7 @@
     $cfg = $configs[$statusUpper] ?? ['bg' => 'bg-gray-100', 'text' => 'text-gray-700', 'border' => 'border-gray-200', 'icon' => 'info'];
 @endphp
 
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {{ $cfg['bg'] }} {{ $cfg['text'] }} {{ $cfg['border'] }}">
+<span class="status-pill items-center gap-1.5 px-3 py-1 text-xs font-bold border {{ $cfg['bg'] }} {{ $cfg['text'] }} {{ $cfg['border'] }}">
     @if(in_array($statusUpper, ['AMAN', 'SAFE', 'NORMAL']))
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
     @elseif(in_array($statusUpper, ['WASPADA', 'WARNING']))

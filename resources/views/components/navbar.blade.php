@@ -9,9 +9,9 @@
     <div class="flex items-center gap-4">
         <!-- Live Clock Indicator -->
         <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-brand-border text-xs font-mono font-medium text-brand-text">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>LIVE</span>
-            <span class="text-brand-muted" id="realtimeClock">10:47:32</span>
+            <span id="liveConnectionDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span id="liveConnectionLabel">MENYAMBUNG</span>
+            <span class="text-brand-muted" id="realtimeClock">--:--:--</span>
         </div>
 
         <!-- Tombol Uji Sirine -->
@@ -24,10 +24,16 @@
 
 <script>
     function updateClock() {
-        const now = new Date();
-        const str = now.toTimeString().split(' ')[0];
         const el = document.getElementById('realtimeClock');
-        if(el) el.innerText = str;
+        if (el) {
+            el.textContent = new Date().toLocaleTimeString('id-ID', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
     }
+    updateClock();
     setInterval(updateClock, 1000);
 </script>

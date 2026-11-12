@@ -1,0 +1,10 @@
+name: earthquake_api_client
+description: Reusable Flutter client for the Laravel earthquake monitoring API.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  http: ^1.4.0
