@@ -28,9 +28,16 @@ class MonitoringController extends ApiController
                 ->first()
             : null;
 
-        $latestDetection = $node1
+        $deviceIds = collect([$node1?->getKey(), $node2?->getKey()])
+            ->filter()
+            ->all();
+
+        $latestDetection = $deviceIds !== []
             ? Deteksi::query()
-                ->where('id_perangkat_a', $node1->getKey())
+                ->where(function ($query) use ($deviceIds): void {
+                    $query->whereIn('id_perangkat_a', $deviceIds)
+                        ->orWhereIn('id_perangkat_b', $deviceIds);
+                })
                 ->latest('id_deteksi')
                 ->first()
             : null;
@@ -49,11 +56,16 @@ class MonitoringController extends ApiController
             ->filter(fn ($value) => $value !== null)
             ->max();
 
+        $statusWilayah = $latestDetection && $latestDetection->berakhir_pada === null
+            ? match ($latestDetection->jenis) {
+                'gempa' => 'BAHAYA',
+                'gangguan_lokal' => 'GANGGUAN',
+                default => 'AMAN',
+            }
+        : 'AMAN';
+
         return $this->success('Status wilayah berhasil diambil.', [
-            'status_wilayah' => $latestDetection?->jenis === 'gempa'
-                && $latestDetection->berakhir_pada === null
-                    ? 'BAHAYA'
-                    : 'AMAN',
+            'status_wilayah' => $statusWilayah,
             'node1_status' => $node1?->status ?? 'offline',
             'node2_status' => $node2?->status ?? 'offline',
             'max_magnitude' => $maxMagnitude,

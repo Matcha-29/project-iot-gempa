@@ -11,6 +11,7 @@ class DeteksiController extends Controller
     public function index()
     {
         $deteksi = Deteksi::with(['perangkatA', 'perangkatB', 'responsWarga'])->latest('waktu_node_a')->paginate(15);
+
         return view('pages.deteksi', compact('deteksi'));
     }
 
@@ -28,7 +29,7 @@ class DeteksiController extends Controller
             'items' => $deteksi->getCollection()->map(static fn (Deteksi $item): array => [
                 'id' => $item->getKey(),
                 'detected_at' => $item->waktu_node_a?->toIso8601String(),
-                'kind' => $item->jenis,
+                'kind' => $item->jenis === 'gangguan_lokal' ? 'Gangguan' : ucfirst($item->jenis),
                 'node_a' => $item->perangkatA?->kode_perangkat,
                 'node_b' => $item->perangkatB?->kode_perangkat,
                 'delay_ms' => $item->jeda_waktu_node,

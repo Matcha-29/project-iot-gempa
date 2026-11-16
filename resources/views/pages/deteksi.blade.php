@@ -3,9 +3,9 @@
 @include('components.navbar', ['title' => 'Deteksi', 'subtitle' => 'Riwayat hasil deteksi dan konsensus perangkat'])
 <main class="p-8"><div class="bg-white p-6 rounded-2xl border shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead><tr class="border-b text-brand-muted"><th class="py-3">Waktu</th><th>Jenis</th><th>Node A</th><th>Node B</th><th>Jeda</th><th>Konsensus</th><th>Keparahan</th><th>Deskripsi</th></tr></thead><tbody id="detectionRows" class="divide-y">
 @forelse($deteksi as $item)
-<tr data-live-id="{{ $item->getKey() }}"><td class="py-3">{{ $item->waktu_node_a?->timezone(config('app.display_timezone'))->format('d M Y H:i:s') ?? '-' }}</td><td>{{ $item->jenis }}</td><td>{{ optional($item->perangkatA)->kode_perangkat ?? '-' }}</td><td>{{ optional($item->perangkatB)->kode_perangkat ?? '-' }}</td><td>{{ $item->jeda_waktu_node !== null ? $item->jeda_waktu_node.' ms' : '-' }}</td><td><span class="status-pill px-2 py-1 text-[10px] font-bold {{ $item->status_konsensus ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700' }}">{{ $item->status_konsensus ? 'Terpenuhi' : 'Tidak terpenuhi' }}</span></td><td><span class="status-pill px-2 py-1 text-[10px] font-bold {{ $item->tingkat_keparahan === 'kuat' ? 'bg-red-100 text-red-800' : ($item->tingkat_keparahan === 'sedang' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700') }}">{{ $item->tingkat_keparahan ? ucfirst($item->tingkat_keparahan) : '-' }}</span></td><td>{{ $item->deskripsi ?? '-' }}</td></tr>
+<tr data-live-id="{{ $item->getKey() }}"><td class="py-3">{{ $item->waktu_node_a?->timezone(config('app.display_timezone'))->format('d M Y H:i:s') ?? '-' }}</td><td>{{ $item->jenis === 'gangguan_lokal' ? 'Gangguan' : ucfirst($item->jenis) }}</td><td>{{ optional($item->perangkatA)->kode_perangkat ?? '-' }}</td><td>{{ optional($item->perangkatB)->kode_perangkat ?? '-' }}</td><td>{{ $item->jeda_waktu_node !== null ? $item->jeda_waktu_node.' ms' : '-' }}</td><td><span class="status-pill px-2 py-1 text-[10px] font-bold {{ $item->status_konsensus ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700' }}">{{ $item->status_konsensus ? 'Terpenuhi' : 'Tidak terpenuhi' }}</span></td><td><span class="status-pill px-2 py-1 text-[10px] font-bold {{ $item->tingkat_keparahan === 'kuat' ? 'bg-red-100 text-red-800' : ($item->tingkat_keparahan === 'sedang' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700') }}">{{ $item->tingkat_keparahan ? ucfirst($item->tingkat_keparahan) : '-' }}</span></td><td>{{ $item->deskripsi ?? '-' }}</td></tr>
 @empty
-<tr data-live-empty><td colspan="8" class="py-8 text-center text-brand-muted">Belum ada data deteksi gempa</td></tr>
+<tr data-live-empty><td colspan="8" class="py-8 text-center text-brand-muted">Belum ada data deteksi</td></tr>
 @endforelse
 </tbody></table></div><div class="mt-4">{{ $deteksi->links() }}</div></div></main>
 <script>
@@ -43,7 +43,7 @@
         };
 
         live.poll(@json(route('deteksi.data')), result => {
-            live.syncRows(body, result.items || [], makeRow, updateRow, 'Belum ada data deteksi gempa', 8);
+            live.syncRows(body, result.items || [], makeRow, updateRow, 'Belum ada data deteksi', 8);
         }, @json($deteksi->currentPage()));
     })();
     });

@@ -26,4 +26,9 @@ Route::get('/deteksi', [DeteksiController::class, 'index'])->name('deteksi.index
 Route::get('/log-alarm/data', [LogAlarmController::class, 'latestData'])->name('log-alarm.data');
 Route::get('/log-alarm', [LogAlarmController::class, 'index'])->name('log-alarm.index');
 Route::get('/lokasi', [LokasiController::class, 'index'])->name('lokasi.index');
-Route::get('/pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');
+Route::middleware('auth')->group(function () {
+    Route::get('/pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');
+    Route::post('/pengguna', [PenggunaController::class, 'store'])->name('pengguna.store');
+    Route::post('/pengguna/{pengguna}/kode-aktivasi', [PenggunaController::class, 'regenerateActivationCode'])->name('pengguna.kode-aktivasi');
+    Route::post('/pengguna/{pengguna}/aktifkan', [PenggunaController::class, 'activate'])->name('pengguna.aktifkan');
+});

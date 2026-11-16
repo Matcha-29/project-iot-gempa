@@ -18,7 +18,7 @@ class DashboardController extends Controller
         DeviceHeartbeat::expireStaleDevices();
         $totalPerangkatAktif = Perangkat::where('status', 'online')->count();
         $deteksiTerbaru = Deteksi::with(['perangkatA', 'perangkatB'])
-            ->where('jenis', 'gempa')
+            ->whereIn('jenis', ['gempa', 'gangguan_lokal'])
             ->latest('waktu_node_a')
             ->paginate(10);
         $jumlahDeteksiTerbaru = Deteksi::where('jenis', 'gempa')->count();
@@ -42,7 +42,7 @@ class DashboardController extends Controller
         DeviceHeartbeat::expireStaleDevices();
 
         $detections = Deteksi::with(['perangkatA', 'perangkatB'])
-            ->where('jenis', 'gempa')
+            ->whereIn('jenis', ['gempa', 'gangguan_lokal'])
             ->latest('waktu_node_a')
             ->paginate(10);
         $latestTelemetry = LevelGetaran::query()
@@ -62,8 +62,11 @@ class DashboardController extends Controller
             'items' => $detections->getCollection()->map(static fn (Deteksi $item): array => [
                 'id' => $item->getKey(),
                 'detected_at' => $item->waktu_node_a?->toIso8601String(),
-                'kind' => $item->jenis,
+                'kind' => $item->jenis === 'gangguan_lokal' ? 'Gangguan' : ucfirst($item->jenis),
                 'consensus' => (bool) $item->status_konsensus,
+                'status' => $item->jenis === 'gangguan_lokal'
+                    ? 'Gangguan'
+                    : ($item->status_konsensus ? 'Terpenuhi' : 'Tidak terpenuhi'),
                 'severity' => $item->tingkat_keparahan,
                 'node_a' => $item->perangkatA?->kode_perangkat,
                 'node_b' => $item->perangkatB?->kode_perangkat,

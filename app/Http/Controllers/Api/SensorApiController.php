@@ -61,10 +61,13 @@ class SensorApiController extends ApiController
         $maxG = $input['node2_online']
             ? max((float) $input['node1_pure_g'], (float) $input['node2_pure_g'])
             : (float) $input['node1_pure_g'];
-        $triggerDetected = (bool) $input['consensus'];
+        $consensusDetected = (bool) $input['consensus'];
+        $node1Triggered = (bool) $input['node1_vib'];
+        $node2Triggered = (bool) $input['node2_online'] && (bool) $input['node2_vib'];
+        $triggerDetected = $consensusDetected || $node1Triggered || $node2Triggered;
         $capturedAt = isset($input['timestamp']) ? Carbon::parse($input['timestamp']) : now();
 
-        $result = DB::transaction(function () use ($input, $node1, $node2, $threshold, $maxG, $triggerDetected, $capturedAt) {
+        $result = DB::transaction(function () use ($input, $node1, $node2, $threshold, $maxG, $consensusDetected, $node1Triggered, $node2Triggered, $triggerDetected, $capturedAt) {
             $node1Online = true;
             $node2Online = (bool) $input['node2_online'];
 
@@ -117,47 +120,71 @@ class SensorApiController extends ApiController
             }
 
             $activeDetection = Deteksi::query()
-                ->where('id_perangkat_a', $node1->getKey())
-                ->where('jenis', 'gempa')
+                ->where(function ($query) use ($node1, $node2): void {
+                    $query->whereIn('id_perangkat_a', [$node1->getKey(), $node2->getKey()])
+                        ->orWhereIn('id_perangkat_b', [$node1->getKey(), $node2->getKey()]);
+                })
+                ->whereIn('jenis', ['gempa', 'gangguan_lokal'])
                 ->whereNull('berakhir_pada')
                 ->latest('id_deteksi')
                 ->first();
 
             $detection = null;
             if ($triggerDetected) {
+                $triggeredNode = $node1Triggered ? $node1 : $node2;
+
                 if ($activeDetection) {
                     $peakG = max((float) ($activeDetection->puncak_getaran_g ?? 0), $maxG);
+                    $promotedToEarthquake = $consensusDetected && $activeDetection->jenis === 'gangguan_lokal';
                     $activeDetection->forceFill([
-                        'id_perangkat_b' => $input['consensus'] ? $node2->getKey() : $activeDetection->id_perangkat_b,
-                        'waktu_node_b' => $input['consensus'] ? $capturedAt : $activeDetection->waktu_node_b,
-                        'status_konsensus' => $activeDetection->status_konsensus || (bool) $input['consensus'],
+                        'id_perangkat_a' => $consensusDetected ? $node1->getKey() : $activeDetection->id_perangkat_a,
+                        'id_perangkat_b' => $consensusDetected ? $node2->getKey() : $activeDetection->id_perangkat_b,
+                        'waktu_node_b' => $consensusDetected ? $capturedAt : $activeDetection->waktu_node_b,
+                        'status_konsensus' => $activeDetection->status_konsensus || $consensusDetected,
+                        'jenis' => $consensusDetected || $activeDetection->jenis === 'gempa' ? 'gempa' : 'gangguan_lokal',
                         'puncak_getaran_g' => $peakG,
                         'tingkat_keparahan' => $peakG >= $threshold * 2 ? 'kuat' : ($peakG >= $threshold ? 'sedang' : 'ringan'),
+                        'deskripsi' => $promotedToEarthquake
+                            ? 'Konsensus getaran terdeteksi oleh ESP32 Master.'
+                            : $activeDetection->deskripsi,
                     ])->save();
                     $detection = $activeDetection;
+
+                    if ($promotedToEarthquake) {
+                        LogAlarm::create([
+                            'id_deteksi' => $detection->getKey(),
+                            'waktu_alarm' => now(),
+                            'jenis_alarm' => 'sirine',
+                            'status_alarm' => 'menyala',
+                            'catatan' => 'Peringatan gempa dibuat otomatis dari telemetri ESP32.',
+                        ]);
+                    }
                 } else {
+                    $jenisDeteksi = $consensusDetected ? 'gempa' : 'gangguan_lokal';
                     $detection = Deteksi::create([
-                        'id_perangkat_a' => $node1->getKey(),
-                        'id_perangkat_b' => $node2Online ? $node2->getKey() : null,
+                        'id_perangkat_a' => $consensusDetected ? $node1->getKey() : $triggeredNode->getKey(),
+                        'id_perangkat_b' => $consensusDetected ? $node2->getKey() : null,
                         'waktu_node_a' => $capturedAt,
-                        'waktu_node_b' => $node2Online ? $capturedAt : null,
+                        'waktu_node_b' => $consensusDetected ? $capturedAt : null,
                         'jeda_waktu_node' => null,
-                        'status_konsensus' => (bool) $input['consensus'],
-                        'jenis' => 'gempa',
+                        'status_konsensus' => $consensusDetected,
+                        'jenis' => $jenisDeteksi,
                         'tingkat_keparahan' => $maxG >= $threshold * 2 ? 'kuat' : ($maxG >= $threshold ? 'sedang' : 'ringan'),
                         'puncak_getaran_g' => $maxG,
-                        'deskripsi' => $input['consensus']
+                        'deskripsi' => $consensusDetected
                             ? 'Konsensus getaran terdeteksi oleh ESP32 Master.'
-                            : 'Ambang batas getaran terlampaui.',
+                            : 'Gangguan lokal terdeteksi di '.$triggeredNode->posisi_node.'. Belum ada konsensus antarperangkat.',
                     ]);
 
-                    LogAlarm::create([
-                        'id_deteksi' => $detection->getKey(),
-                        'waktu_alarm' => now(),
-                        'jenis_alarm' => 'sirine',
-                        'status_alarm' => 'menyala',
-                        'catatan' => 'Peringatan gempa dibuat otomatis dari telemetri ESP32.',
-                    ]);
+                    if ($consensusDetected) {
+                        LogAlarm::create([
+                            'id_deteksi' => $detection->getKey(),
+                            'waktu_alarm' => now(),
+                            'jenis_alarm' => 'sirine',
+                            'status_alarm' => 'menyala',
+                            'catatan' => 'Peringatan gempa dibuat otomatis dari telemetri ESP32.',
+                        ]);
+                    }
                 }
             } elseif ($activeDetection) {
                 $activeDetection->forceFill(['berakhir_pada' => now()])->save();
