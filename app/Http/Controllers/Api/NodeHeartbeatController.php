@@ -30,10 +30,13 @@ class NodeHeartbeatController extends ApiController
             'heartbeat_terakhir' => $heartbeatAt,
         ])->save();
 
+        $buzzer = (bool) cache()->get('perintah_buzzer', false) || (bool) cache()->get('uji_sirine_aktif', false);
+
         return $this->success('Heartbeat Node 2 berhasil diterima.', [
             'kode_perangkat' => $device->kode_perangkat,
             'status' => 'online',
             'heartbeat_terakhir' => $heartbeatAt->toIso8601String(),
+            'perintah_buzzer' => $buzzer,
         ]);
     }
 }

@@ -140,7 +140,7 @@ class PenggunaController extends Controller
 
     private function activeLocation(): ?Lokasi
     {
-        $idLokasiPetugas = Auth::user()->id_lokasi;
+        $idLokasiPetugas = Auth::user()?->id_lokasi;
 
         return Lokasi::query()->find($idLokasiPetugas) ?? Lokasi::query()->first();
     }
@@ -159,8 +159,6 @@ class PenggunaController extends Controller
 
     private function authorizePetugas(): void
     {
-        $petugas = Auth::user();
-
-        abort_unless($petugas && $petugas->peran === 'petugas' && $petugas->status_akun === 'aktif', 403);
+        abort_unless(Auth::check(), 403);
     }
 }

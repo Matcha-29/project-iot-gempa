@@ -201,10 +201,15 @@ class SensorApiController extends ApiController
             return compact('readings', 'detection', 'triggerDetected', 'node1Online', 'node2Online');
         });
 
+        $buzzer = (bool) cache()->get('perintah_buzzer', false)
+            || (bool) cache()->get('uji_sirine_aktif', false)
+            || (bool) $result['triggerDetected'];
+
         return $this->success('Telemetri ESP32 berhasil diterima.', [
             'node1_status' => $result['node1Online'] ? 'online' : 'offline',
             'node2_status' => $result['node2Online'] ? 'online' : 'offline',
             'trigger_detected' => $result['triggerDetected'],
+            'perintah_buzzer' => $buzzer,
             'readings' => $result['readings'],
             'deteksi' => $result['detection'],
         ], 201);
